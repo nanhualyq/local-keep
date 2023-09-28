@@ -148,7 +148,8 @@ class _MyHomePageState extends State<MyHomePage> {
         }
       }
     }
-    files.sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+    files
+        .sort((a, b) => a.statSync().modified.compareTo(b.statSync().modified));
     setState(() {
       items = files;
     });
