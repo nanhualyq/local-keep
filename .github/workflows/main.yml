@@ -52,5 +52,5 @@ jobs:
 
      - uses: ncipollo/release-action@v1
        with:
-         artifacts: "linux-x64.zip"
+         artifacts: "build/linux/x64/release/bundle/linux-x64.zip"
          allowUpdates: true
