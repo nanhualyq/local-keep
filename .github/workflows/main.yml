@@ -48,7 +48,7 @@ jobs:
        with:
          type: 'zip'
          filename: 'linux-x64.zip'
-         path: "build/linux/x64/release/bundle"
+         directory: "build/linux/x64/release/bundle"
 
      - uses: ncipollo/release-action@v1
        with:
