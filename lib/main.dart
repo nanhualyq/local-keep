@@ -8,6 +8,7 @@ import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
 import 'package:flutter_sharing_intent/model/sharing_file.dart';
 import 'package:local_keep/settings.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:quick_actions/quick_actions.dart';
 
 const title = 'Local Keep';
 
@@ -53,6 +54,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _txtController = TextEditingController();
     if (Platform.isAndroid) {
       receiveShareingListener();
+      initQuickActions();
     }
   }
 
@@ -248,5 +250,17 @@ class _MyHomePageState extends State<MyHomePage> {
         addTxt(o.value ?? '');
       }
     }
+  }
+  
+  void initQuickActions() {
+    const QuickActions quickActions = QuickActions();
+    quickActions.setShortcutItems([
+      const ShortcutItem(type: 'action_add', localizedTitle: 'Quick Add')
+    ]);
+    quickActions.initialize((type) {
+      if (type == 'action_add') {
+        quickCreate(context);
+      }
+    });
   }
 }
