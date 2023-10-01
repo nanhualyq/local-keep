@@ -244,7 +244,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void handleSharing(List<SharedFile> event) {
     for (var o in event) {
-      if (o.type == SharedMediaType.TEXT) {
+      if ([SharedMediaType.TEXT, SharedMediaType.URL].contains(o.type)) {
         addTxt(o.value ?? '');
       }
     }
