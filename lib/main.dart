@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
 import 'package:flutter_sharing_intent/model/sharing_file.dart';
+import 'package:local_keep/main_list.dart';
 import 'package:local_keep/settings.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:quick_actions/quick_actions.dart';
+import 'package:record/record.dart';
 
 const title = 'Local Keep';
 
@@ -46,6 +48,8 @@ class _MyHomePageState extends State<MyHomePage> {
   List<FileSystemEntity> items = [];
   late TextEditingController _txtController;
   late StreamSubscription _intentDataStreamSubscription;
+  final Record record = Record();
+  bool isRecording = false;
 
   @override
   void initState() {
@@ -64,6 +68,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (Platform.isAndroid) {
       _intentDataStreamSubscription.cancel();
     }
+    record.dispose();
     super.dispose();
   }
 
@@ -71,11 +76,11 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyR, control: true):() {
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true): () {
           fetchItems();
         },
-        const SingleActivator(LogicalKeyboardKey.keyN, control: true):() {
-          quickCreate(context);
+        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () {
+          quickCreate();
         }
       },
       child: Focus(
@@ -85,50 +90,18 @@ class _MyHomePageState extends State<MyHomePage> {
             backgroundColor: Theme.of(context).colorScheme.inversePrimary,
             title: Text(widget.title),
             actions: [
-              IconButton(onPressed: fetchItems, icon: const Icon(Icons.refresh)),
-              IconButton(onPressed: setDataPath, icon: const Icon(Icons.settings)),
+              IconButton(
+                  onPressed: fetchItems, icon: const Icon(Icons.refresh)),
+              IconButton(
+                  onPressed: setDataPath, icon: const Icon(Icons.settings)),
             ],
           ),
-          body: ListView.builder(
-            itemCount: items.length,
-            // prototypeItem: ListTile(
-            //   title: Text(itemsfirst.path),
-            // ),
-            itemBuilder: (context, index) {
-              var item = items[index];
-              return ListTile(
-                leading: const Icon(Icons.text_fields),
-                title: Text(
-                  File(item.path).readAsStringSync(),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 3,
-                ),
-                // subtitle: Text(items[index].path),
-                // subtitleTextStyle: const TextStyle(color: Colors.black26),
-                // isThreeLine: true,
-                trailing: PopupMenuButton(
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'Delete':
-                        deleteItem(index);
-                        break;
-                      default:
-                    }
-                  },
-                  itemBuilder: (BuildContext context) {
-                    return [
-                      const PopupMenuItem(
-                        value: 'Delete',
-                        child: Text('Delete'),
-                      )
-                    ];
-                  },
-                ),
-              );
-            },
+          body: MainList(
+            items: items,
+            menuSelected: menuSelected,
           ),
           floatingActionButton: FloatingActionButton(
-            onPressed: () => quickCreate(context),
+            onPressed: () => quickCreate(),
             tooltip: 'Add',
             child: const Icon(Icons.add),
           ), // This trailing comma makes auto-formatting nicer for build methods.
@@ -139,13 +112,14 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> addTxt(String text) async {
     final dataPath = await Settings.getDataPath();
-    final time = DateTime.now().millisecondsSinceEpoch.toString();
-    String filePath = '${dataPath!}/$time.txt';
+    String filePath = '${dataPath!}/${makeNewFileName()}.txt';
     var myFile = File(filePath);
     myFile.writeAsStringSync(text);
     _txtController.clear();
     fetchItems();
   }
+
+  String makeNewFileName() => DateTime.now().millisecondsSinceEpoch.toString();
 
   Future<void> fetchItems() async {
     String? dataPath = await Settings.getDataPath();
@@ -171,7 +145,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  quickCreate(BuildContext context) async {
+  quickCreate() async {
     void checkContent() {
       if (_txtController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context)
@@ -184,36 +158,64 @@ class _MyHomePageState extends State<MyHomePage> {
     var res = await showDialog(
         context: context,
         builder: (context) {
-          return SimpleDialog(
-            title: TextField(
-              controller: _txtController,
-              focusNode: FocusNode(
-                onKey: (FocusNode node, RawKeyEvent event) {
-                  if (event.isControlPressed &&
-                      event.logicalKey == LogicalKeyboardKey.enter) {
-                    checkContent();
-                    if (event is RawKeyDownEvent) {
-                      return KeyEventResult.handled;
+          return StatefulBuilder(builder: (context, setState) {
+            return SimpleDialog(
+              title: TextField(
+                controller: _txtController,
+                focusNode: FocusNode(
+                  onKey: (FocusNode node, RawKeyEvent event) {
+                    if (event.isControlPressed &&
+                        event.logicalKey == LogicalKeyboardKey.enter) {
+                      checkContent();
+                      if (event is RawKeyDownEvent) {
+                        return KeyEventResult.handled;
+                      }
                     }
-                  }
-                  return KeyEventResult.ignored;
-                },
+                    return KeyEventResult.ignored;
+                  },
+                ),
+                minLines: 1,
+                maxLines: 10,
+                autofocus: true,
               ),
-              minLines: 1,
-              maxLines: 10,
-              autofocus: true,
-            ),
-            children: [
-              Row(
-                children: [
-                  SimpleDialogOption(
-                    onPressed: checkContent,
-                    child: const Icon(Icons.add_task),
-                  ),
-                ],
-              ),
-            ],
-          );
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          SimpleDialogOption(
+                            onPressed: () => setState(() {
+                              isRecording = !isRecording;
+                              recordVoice();
+                            }),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                const Icon(Icons.keyboard_voice_outlined),
+                                if (isRecording)
+                                  const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        semanticsValue: 'Recording',
+                                        strokeWidth: 1,
+                                      )),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SimpleDialogOption(
+                      onPressed: checkContent,
+                      child: const Icon(Icons.add_circle_outline),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          });
         });
     if (res == 'save') {
       addTxt(_txtController.text);
@@ -251,16 +253,55 @@ class _MyHomePageState extends State<MyHomePage> {
       }
     }
   }
-  
+
   void initQuickActions() {
     const QuickActions quickActions = QuickActions();
-    quickActions.setShortcutItems([
-      const ShortcutItem(type: 'action_add', localizedTitle: 'Quick Add')
-    ]);
+    quickActions.setShortcutItems(
+        [const ShortcutItem(type: 'action_add', localizedTitle: 'Quick Add')]);
     quickActions.initialize((type) {
       if (type == 'action_add') {
-        quickCreate(context);
+        quickCreate();
       }
     });
+  }
+
+  void recordVoice() async {
+    if (Platform.isLinux) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Linux cannot work for now!"),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+    if (await record.isRecording()) {
+      // Stop recording
+      await record.stop();
+      if (context.mounted) {
+        Navigator.pop(context);
+        fetchItems();
+      }
+      return;
+    }
+
+    // Check and request permission
+    if (await record.hasPermission()) {
+      final dataPath = await Settings.getDataPath();
+      // Start recording
+      await record.start(
+        path: '${dataPath!}/${makeNewFileName()}.m4a',
+        // encoder: AudioEncoder.aacLc, // by default
+        // bitRate: 128000, // by default
+        // samplingRate: 44100, // by default
+      );
+    }
+  }
+
+  void menuSelected(String value, int index) {
+    switch (value) {
+      case 'Delete':
+        deleteItem(index);
+        break;
+      default:
+    }
   }
 }
