@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
 import 'package:flutter_sharing_intent/model/sharing_file.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:local_keep/main_list.dart';
 import 'package:local_keep/settings.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -181,32 +182,41 @@ class _MyHomePageState extends State<MyHomePage> {
               children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          SimpleDialogOption(
-                            onPressed: () => setState(() {
-                              isRecording = !isRecording;
-                              recordVoice();
-                            }),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                const Icon(Icons.keyboard_voice_outlined),
-                                if (isRecording)
-                                  const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        semanticsValue: 'Recording',
-                                        strokeWidth: 1,
-                                      )),
-                              ],
+                    if (Platform.isAndroid)
+                      Expanded(
+                        child: Row(
+                          children: [
+                            SimpleDialogOption(
+                              onPressed: () => setState(() {
+                                isRecording = !isRecording;
+                                recordVoice();
+                              }),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  const Icon(Icons.keyboard_voice_outlined),
+                                  if (isRecording)
+                                    const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          semanticsValue: 'Recording',
+                                          strokeWidth: 1,
+                                        )),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                            SimpleDialogOption(
+                              onPressed: addPhoto,
+                              child: const Icon(Icons.camera_alt),
+                            ),
+                            SimpleDialogOption(
+                              onPressed: addVideo,
+                              child: const Icon(Icons.videocam),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                     SimpleDialogOption(
                       onPressed: checkContent,
                       child: const Icon(Icons.add_circle_outline),
@@ -266,13 +276,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void recordVoice() async {
-    if (Platform.isLinux) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("Linux cannot work for now!"),
-        backgroundColor: Colors.red,
-      ));
-      return;
-    }
     if (await record.isRecording()) {
       // Stop recording
       await record.stop();
@@ -303,5 +306,33 @@ class _MyHomePageState extends State<MyHomePage> {
         break;
       default:
     }
+  }
+
+  Future<void> addPhoto() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? photo = await picker.pickImage(source: ImageSource.camera);
+    if (photo == null) {
+      return;
+    }
+    final dataPath = await Settings.getDataPath();
+    photo.saveTo('$dataPath/${photo.name}');
+    if (context.mounted) {
+      Navigator.pop(context);
+    }
+    fetchItems();
+  }
+
+  Future<void> addVideo() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? cameraVideo = await picker.pickVideo(source: ImageSource.camera);
+    if (cameraVideo == null) {
+      return;
+    }
+    final dataPath = await Settings.getDataPath();
+    cameraVideo.saveTo('$dataPath/${cameraVideo.name}');
+    if (context.mounted) {
+      Navigator.pop(context);
+    }
+    fetchItems();
   }
 }
