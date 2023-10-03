@@ -36,10 +36,25 @@ class MainList extends StatelessWidget {
     );
   }
 
+  final iconMap = const {
+    'text': Icons.text_fields,
+    'audio': Icons.audio_file,
+    'image': Icons.photo,
+    'video': Icons.video_file,
+    'other': Icons.question_mark
+  };
+
+  Icon makeLeading(String? mime) {
+    final type = mime != null ? mime.split('/').first : 'other';
+    return Icon(iconMap[type]);
+  }
+
   Widget makeTitle(FileSystemEntity item, String? mime) {
     final type = mime != null ? mime.split('/').first : 'other';
     if (type == 'text') {
       return showText(item);
+    } else if (type == 'image') {
+      return Image.file(File(item.path));
     }
     return showFilePath(item);
   }
@@ -54,16 +69,5 @@ class MainList extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       maxLines: 3,
     );
-  }
-
-  final iconMap = const {
-    'text': Icons.text_fields,
-    'audio': Icons.audio_file,
-    'other': Icons.question_mark
-  };
-
-  Icon makeLeading(String? mime) {
-    final type = mime != null ? mime.split('/').first : 'other';
-    return Icon(iconMap[type]);
   }
 }
