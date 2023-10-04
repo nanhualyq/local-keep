@@ -118,7 +118,6 @@ class _MyHomePageState extends State<MyHomePage> {
     var myFile = File(filePath);
     myFile.writeAsStringSync(text);
     _txtController.clear();
-    fetchItems();
   }
 
   String makeNewFileName() => DateTime.now().millisecondsSinceEpoch.toString();
@@ -154,10 +153,11 @@ class _MyHomePageState extends State<MyHomePage> {
             .showSnackBar(const SnackBar(content: Text("Content is empty!")));
         return;
       }
-      Navigator.pop(context, 'save');
+      addTxt(_txtController.text);
+      afterAdd();
     }
 
-    var res = await showDialog(
+    showDialog(
         context: context,
         builder: (context) {
           return StatefulBuilder(builder: (context, setState) {
@@ -226,7 +226,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       onPressed: checkContent,
                       child: const Icon(
                         Icons.done,
-                        size: 40,
+                        size: 30,
                         color: Colors.blue,
                       ),
                     ),
@@ -236,9 +236,6 @@ class _MyHomePageState extends State<MyHomePage> {
             );
           });
         });
-    if (res == 'save') {
-      addTxt(_txtController.text);
-    }
   }
 
   Future<void> setDataPath() async {
@@ -269,8 +266,11 @@ class _MyHomePageState extends State<MyHomePage> {
     for (var o in event) {
       if ([SharedMediaType.TEXT, SharedMediaType.URL].contains(o.type)) {
         addTxt(o.value ?? '');
+      } else {
+        copyFileByPath(o.value);
       }
     }
+    fetchItems();
   }
 
   void initQuickActions() {
@@ -325,10 +325,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     final dataPath = await Settings.getDataPath();
     photo.saveTo('$dataPath/${photo.name}');
-    if (context.mounted) {
-      Navigator.pop(context);
-    }
-    fetchItems();
+    afterAdd();
   }
 
   Future<void> addVideo() async {
@@ -340,10 +337,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     final dataPath = await Settings.getDataPath();
     cameraVideo.saveTo('$dataPath/${cameraVideo.name}');
-    if (context.mounted) {
-      Navigator.pop(context);
-    }
-    fetchItems();
+    afterAdd();
   }
 
   Future<void> addFiles() async {
@@ -352,16 +346,25 @@ class _MyHomePageState extends State<MyHomePage> {
     if (result == null) {
       return;
     }
-    final dataPath = await Settings.getDataPath();
     for (var file in result.files) {
-      var newName = '${makeNewFileName()}.${file.name.split('.').last}';
-      if (file.path != null) {
-        File(file.path!).copySync('$dataPath/$newName');
-      }
+      await copyFileByPath(file.path);
     }
+    afterAdd();
+  }
+
+  void afterAdd() {
     if (context.mounted) {
       Navigator.pop(context);
     }
     fetchItems();
+  }
+
+  Future<void> copyFileByPath(String? path) async {
+    if (path == null) {
+      return;
+    }
+    final dataPath = await Settings.getDataPath();
+    var newName = '${makeNewFileName()}.${path.split('.').last}';
+    File(path).copySync('$dataPath/$newName');
   }
 }
