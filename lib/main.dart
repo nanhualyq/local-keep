@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -182,44 +183,52 @@ class _MyHomePageState extends State<MyHomePage> {
               children: [
                 Row(
                   children: [
-                    if (Platform.isAndroid)
-                      Expanded(
-                        child: Row(
-                          children: [
-                            SimpleDialogOption(
-                              onPressed: () => setState(() {
-                                isRecording = !isRecording;
-                                recordVoice();
-                              }),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  const Icon(Icons.keyboard_voice_outlined),
-                                  if (isRecording)
-                                    const SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          semanticsValue: 'Recording',
-                                          strokeWidth: 1,
-                                        )),
-                                ],
-                              ),
+                    // if (Platform.isAndroid)
+                    Expanded(
+                      child: Wrap(
+                        children: [
+                          SimpleDialogOption(
+                            onPressed: () => setState(() {
+                              isRecording = !isRecording;
+                              recordVoice();
+                            }),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                const Icon(Icons.keyboard_voice_outlined),
+                                if (isRecording)
+                                  const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        semanticsValue: 'Recording',
+                                        strokeWidth: 1,
+                                      )),
+                              ],
                             ),
-                            SimpleDialogOption(
-                              onPressed: addPhoto,
-                              child: const Icon(Icons.camera_alt),
-                            ),
-                            SimpleDialogOption(
-                              onPressed: addVideo,
-                              child: const Icon(Icons.videocam),
-                            ),
-                          ],
-                        ),
+                          ),
+                          SimpleDialogOption(
+                            onPressed: addPhoto,
+                            child: const Icon(Icons.camera_alt_outlined),
+                          ),
+                          SimpleDialogOption(
+                            onPressed: addVideo,
+                            child: const Icon(Icons.videocam_outlined),
+                          ),
+                          SimpleDialogOption(
+                            onPressed: addFiles,
+                            child: const Icon(Icons.attach_file),
+                          ),
+                        ],
                       ),
+                    ),
                     SimpleDialogOption(
                       onPressed: checkContent,
-                      child: const Icon(Icons.add_circle_outline),
+                      child: const Icon(
+                        Icons.done,
+                        size: 40,
+                        color: Colors.blue,
+                      ),
                     ),
                   ],
                 ),
@@ -324,12 +333,32 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> addVideo() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? cameraVideo = await picker.pickVideo(source: ImageSource.camera);
+    final XFile? cameraVideo =
+        await picker.pickVideo(source: ImageSource.camera);
     if (cameraVideo == null) {
       return;
     }
     final dataPath = await Settings.getDataPath();
     cameraVideo.saveTo('$dataPath/${cameraVideo.name}');
+    if (context.mounted) {
+      Navigator.pop(context);
+    }
+    fetchItems();
+  }
+
+  Future<void> addFiles() async {
+    FilePickerResult? result =
+        await FilePicker.platform.pickFiles(allowMultiple: true);
+    if (result == null) {
+      return;
+    }
+    final dataPath = await Settings.getDataPath();
+    for (var file in result.files) {
+      var newName = '${makeNewFileName()}.${file.name.split('.').last}';
+      if (file.path != null) {
+        File(file.path!).copySync('$dataPath/$newName');
+      }
+    }
     if (context.mounted) {
       Navigator.pop(context);
     }

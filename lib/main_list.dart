@@ -51,7 +51,7 @@ class MainList extends StatelessWidget {
 
   Widget makeTitle(FileSystemEntity item, String? mime) {
     final type = mime != null ? mime.split('/').first : 'other';
-    if (type == 'text') {
+    if (mime == 'text/plain') {
       return showText(item);
     } else if (type == 'image') {
       return Image.file(File(item.path));
