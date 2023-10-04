@@ -13,6 +13,7 @@ import 'package:local_keep/settings.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:record/record.dart';
+import 'package:watcher/watcher.dart';
 
 const title = 'Local Keep';
 
@@ -62,6 +63,14 @@ class _MyHomePageState extends State<MyHomePage> {
       receiveShareingListener();
       initQuickActions();
     }
+    watchDatadir();
+  }
+
+  Future<void> watchDatadir() async {
+    final dataPath = await Settings.getDataPath();
+    // fixme: how to dispose?
+    var watcher = DirectoryWatcher(dataPath);
+    watcher.events.listen((e) => fetchItems());
   }
 
   @override
@@ -245,7 +254,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void deleteItem(int index) {
     items[index].deleteSync();
-    fetchItems();
   }
 
   void receiveShareingListener() {
@@ -270,7 +278,6 @@ class _MyHomePageState extends State<MyHomePage> {
         copyFileByPath(o.value);
       }
     }
-    fetchItems();
   }
 
   void initQuickActions() {
@@ -288,10 +295,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (await record.isRecording()) {
       // Stop recording
       await record.stop();
-      if (context.mounted) {
-        Navigator.pop(context);
-        fetchItems();
-      }
+      afterAdd();
       return;
     }
 
@@ -356,7 +360,6 @@ class _MyHomePageState extends State<MyHomePage> {
     if (context.mounted) {
       Navigator.pop(context);
     }
-    fetchItems();
   }
 
   Future<void> copyFileByPath(String? path) async {
