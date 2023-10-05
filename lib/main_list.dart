@@ -54,9 +54,20 @@ class MainList extends StatelessWidget {
     if (mime == 'text/plain') {
       return showText(item);
     } else if (type == 'image') {
-      return Image.file(File(item.path));
+      return showImage(item);
     }
     return showFilePath(item);
+  }
+
+  Widget showImage(FileSystemEntity item) {
+    return ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxHeight: 200,
+        ),
+        child: Image.file(
+          File(item.path),
+          alignment: Alignment.centerLeft,
+        ));
   }
 
   Text showFilePath(FileSystemEntity item) {
