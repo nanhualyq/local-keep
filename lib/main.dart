@@ -7,8 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
 import 'package:flutter_sharing_intent/model/sharing_file.dart';
+import 'package:get/state_manager.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_keep/main_list.dart';
+import 'package:local_keep/main_obs.dart';
 import 'package:local_keep/settings.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:quick_actions/quick_actions.dart';
@@ -64,6 +66,7 @@ class _MyHomePageState extends State<MyHomePage> {
       initQuickActions();
     }
     watchDatadir();
+    ever(MainObs.shortcutStatus, shortcutCallback);
   }
 
   Future<void> watchDatadir() async {
@@ -92,6 +95,12 @@ class _MyHomePageState extends State<MyHomePage> {
         },
         const SingleActivator(LogicalKeyboardKey.keyN, control: true): () {
           quickCreate();
+        },
+        const SingleActivator(LogicalKeyboardKey.delete): () {
+          if (MainObs.focusItemIndex.value != -1) {
+            MainObs.shortcutStatus.value =
+                'Delete/${MainObs.focusItemIndex}/${DateTime.now()}';
+          }
         }
       },
       child: Focus(
@@ -102,15 +111,18 @@ class _MyHomePageState extends State<MyHomePage> {
             title: Text(widget.title),
             actions: [
               IconButton(
-                  onPressed: fetchItems, icon: const Icon(Icons.refresh)),
+                onPressed: fetchItems,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Refresh',
+              ),
               IconButton(
-                  onPressed: setDataPath, icon: const Icon(Icons.settings)),
+                onPressed: setDataPath,
+                icon: const Icon(Icons.settings),
+                tooltip: 'Settings',
+              ),
             ],
           ),
-          body: MainList(
-            items: items,
-            menuSelected: menuSelected,
-          ),
+          body: MainList(items: items),
           floatingActionButton: FloatingActionButton(
             onPressed: () => quickCreate(),
             tooltip: 'Add',
@@ -252,10 +264,6 @@ class _MyHomePageState extends State<MyHomePage> {
     fetchItems();
   }
 
-  void deleteItem(int index) {
-    items[index].deleteSync();
-  }
-
   void receiveShareingListener() {
     // For sharing images coming from outside the app while the app is in the memory
     _intentDataStreamSubscription = FlutterSharingIntent.instance
@@ -312,15 +320,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void menuSelected(String value, int index) {
-    switch (value) {
-      case 'Delete':
-        deleteItem(index);
-        break;
-      default:
-    }
-  }
-
   Future<void> addPhoto() async {
     final ImagePicker picker = ImagePicker();
     final XFile? photo = await picker.pickImage(source: ImageSource.camera);
@@ -369,5 +368,16 @@ class _MyHomePageState extends State<MyHomePage> {
     final dataPath = await Settings.getDataPath();
     var newName = '${makeNewFileName()}.${path.split('.').last}';
     File(path).copySync('$dataPath/$newName');
+  }
+
+  shortcutCallback(String status) {
+    var params = status.split('/');
+    int index = int.parse(params[1]);
+    switch (params.first) {
+      case 'Delete':
+        items[index].deleteSync();
+        break;
+      default:
+    }
   }
 }

@@ -1,13 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:local_keep/main_obs.dart';
 import 'package:mime/mime.dart';
 import 'package:open_app_file/open_app_file.dart';
 
 class MainList extends StatelessWidget {
   final List<FileSystemEntity> items;
-  final void Function(String, int) menuSelected;
 
-  const MainList({super.key, required this.items, required this.menuSelected});
+  const MainList({super.key, required this.items});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +20,8 @@ class MainList extends StatelessWidget {
           leading: makeLeading(mime),
           title: makeTitle(item, mime),
           trailing: PopupMenuButton(
-            onSelected: (value) => menuSelected(value, index),
+            onSelected: (value) => MainObs.shortcutStatus.value =
+                '$value/$index/${DateTime.now()}',
             itemBuilder: (BuildContext context) {
               return [
                 const PopupMenuItem(
@@ -31,6 +32,13 @@ class MainList extends StatelessWidget {
             },
           ),
           onTap: () => OpenAppFile.open(item.path),
+          onFocusChange: (value) {
+            if (value) {
+              MainObs.focusItemIndex.value = index;
+            } else if (index == MainObs.focusItemIndex.value) {
+              MainObs.focusItemIndex.value = -1;
+            }
+          },
         );
       },
     );
