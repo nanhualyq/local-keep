@@ -7,12 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
 import 'package:flutter_sharing_intent/model/sharing_file.dart';
+import 'package:get/state_manager.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_keep/main_list.dart';
+import 'package:local_keep/main_obs.dart';
 import 'package:local_keep/settings.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:record/record.dart';
+import 'package:watcher/watcher.dart';
 
 const title = 'Local Keep';
 
@@ -62,6 +65,15 @@ class _MyHomePageState extends State<MyHomePage> {
       receiveShareingListener();
       initQuickActions();
     }
+    watchDatadir();
+    ever(MainObs.shortcutStatus, shortcutCallback);
+  }
+
+  Future<void> watchDatadir() async {
+    final dataPath = await Settings.getDataPath();
+    // fixme: how to dispose?
+    var watcher = DirectoryWatcher(dataPath);
+    watcher.events.listen((e) => fetchItems());
   }
 
   @override
@@ -83,6 +95,12 @@ class _MyHomePageState extends State<MyHomePage> {
         },
         const SingleActivator(LogicalKeyboardKey.keyN, control: true): () {
           quickCreate();
+        },
+        const SingleActivator(LogicalKeyboardKey.delete): () {
+          if (MainObs.focusItemIndex.value != -1) {
+            MainObs.shortcutStatus.value =
+                'Delete/${MainObs.focusItemIndex}/${DateTime.now()}';
+          }
         }
       },
       child: Focus(
@@ -93,15 +111,18 @@ class _MyHomePageState extends State<MyHomePage> {
             title: Text(widget.title),
             actions: [
               IconButton(
-                  onPressed: fetchItems, icon: const Icon(Icons.refresh)),
+                onPressed: fetchItems,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Refresh',
+              ),
               IconButton(
-                  onPressed: setDataPath, icon: const Icon(Icons.settings)),
+                onPressed: setDataPath,
+                icon: const Icon(Icons.settings),
+                tooltip: 'Settings',
+              ),
             ],
           ),
-          body: MainList(
-            items: items,
-            menuSelected: menuSelected,
-          ),
+          body: MainList(items: items),
           floatingActionButton: FloatingActionButton(
             onPressed: () => quickCreate(),
             tooltip: 'Add',
@@ -118,7 +139,6 @@ class _MyHomePageState extends State<MyHomePage> {
     var myFile = File(filePath);
     myFile.writeAsStringSync(text);
     _txtController.clear();
-    fetchItems();
   }
 
   String makeNewFileName() => DateTime.now().millisecondsSinceEpoch.toString();
@@ -154,10 +174,11 @@ class _MyHomePageState extends State<MyHomePage> {
             .showSnackBar(const SnackBar(content: Text("Content is empty!")));
         return;
       }
-      Navigator.pop(context, 'save');
+      addTxt(_txtController.text);
+      afterAdd();
     }
 
-    var res = await showDialog(
+    showDialog(
         context: context,
         builder: (context) {
           return StatefulBuilder(builder: (context, setState) {
@@ -226,7 +247,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       onPressed: checkContent,
                       child: const Icon(
                         Icons.done,
-                        size: 40,
+                        size: 30,
                         color: Colors.blue,
                       ),
                     ),
@@ -236,18 +257,10 @@ class _MyHomePageState extends State<MyHomePage> {
             );
           });
         });
-    if (res == 'save') {
-      addTxt(_txtController.text);
-    }
   }
 
   Future<void> setDataPath() async {
     await Settings.setDataPath();
-    fetchItems();
-  }
-
-  void deleteItem(int index) {
-    items[index].deleteSync();
     fetchItems();
   }
 
@@ -269,6 +282,8 @@ class _MyHomePageState extends State<MyHomePage> {
     for (var o in event) {
       if ([SharedMediaType.TEXT, SharedMediaType.URL].contains(o.type)) {
         addTxt(o.value ?? '');
+      } else {
+        copyFileByPath(o.value);
       }
     }
   }
@@ -288,10 +303,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (await record.isRecording()) {
       // Stop recording
       await record.stop();
-      if (context.mounted) {
-        Navigator.pop(context);
-        fetchItems();
-      }
+      afterAdd();
       return;
     }
 
@@ -308,15 +320,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void menuSelected(String value, int index) {
-    switch (value) {
-      case 'Delete':
-        deleteItem(index);
-        break;
-      default:
-    }
-  }
-
   Future<void> addPhoto() async {
     final ImagePicker picker = ImagePicker();
     final XFile? photo = await picker.pickImage(source: ImageSource.camera);
@@ -325,10 +328,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     final dataPath = await Settings.getDataPath();
     photo.saveTo('$dataPath/${photo.name}');
-    if (context.mounted) {
-      Navigator.pop(context);
-    }
-    fetchItems();
+    afterAdd();
   }
 
   Future<void> addVideo() async {
@@ -340,10 +340,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     final dataPath = await Settings.getDataPath();
     cameraVideo.saveTo('$dataPath/${cameraVideo.name}');
-    if (context.mounted) {
-      Navigator.pop(context);
-    }
-    fetchItems();
+    afterAdd();
   }
 
   Future<void> addFiles() async {
@@ -352,16 +349,35 @@ class _MyHomePageState extends State<MyHomePage> {
     if (result == null) {
       return;
     }
-    final dataPath = await Settings.getDataPath();
     for (var file in result.files) {
-      var newName = '${makeNewFileName()}.${file.name.split('.').last}';
-      if (file.path != null) {
-        File(file.path!).copySync('$dataPath/$newName');
-      }
+      await copyFileByPath(file.path);
     }
+    afterAdd();
+  }
+
+  void afterAdd() {
     if (context.mounted) {
       Navigator.pop(context);
     }
-    fetchItems();
+  }
+
+  Future<void> copyFileByPath(String? path) async {
+    if (path == null) {
+      return;
+    }
+    final dataPath = await Settings.getDataPath();
+    var newName = '${makeNewFileName()}.${path.split('.').last}';
+    File(path).copySync('$dataPath/$newName');
+  }
+
+  shortcutCallback(String status) {
+    var params = status.split('/');
+    int index = int.parse(params[1]);
+    switch (params.first) {
+      case 'Delete':
+        items[index].deleteSync();
+        break;
+      default:
+    }
   }
 }
