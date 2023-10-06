@@ -75,7 +75,11 @@ class _MyHomePageState extends State<MyHomePage> {
     final dataPath = await Settings.getDataPath();
     // fixme: how to dispose?
     var watcher = DirectoryWatcher(dataPath);
-    watcher.events.listen((e) => fetchItems());
+    if (!watcher.isReady) {
+      watcher.events.listen((e) {
+        fetchItems();
+      });
+    }
   }
 
   @override
