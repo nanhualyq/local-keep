@@ -20,8 +20,7 @@ class MainList extends StatelessWidget {
           leading: makeLeading(mime),
           title: makeTitle(item, mime),
           trailing: PopupMenuButton(
-            onSelected: (value) => MainObs.shortcutStatus.value =
-                '$value/$index/${DateTime.now()}',
+            onSelected: (value) => MainObs.setShortcutStatus(value, index),
             itemBuilder: (BuildContext context) {
               return [
                 const PopupMenuItem(
@@ -31,7 +30,7 @@ class MainList extends StatelessWidget {
               ];
             },
           ),
-          onTap: () => OpenAppFile.open(item.path),
+          onTap: () => MainObs.setShortcutStatus('Open', index),
           onFocusChange: (value) {
             if (value) {
               MainObs.focusItemIndex.value = index;

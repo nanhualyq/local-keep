@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:local_keep/main_list.dart';
 import 'package:local_keep/main_obs.dart';
 import 'package:local_keep/settings.dart';
+import 'package:open_app_file/open_app_file.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:record/record.dart';
@@ -97,10 +98,10 @@ class _MyHomePageState extends State<MyHomePage> {
           quickCreate();
         },
         const SingleActivator(LogicalKeyboardKey.delete): () {
-          if (MainObs.focusItemIndex.value != -1) {
-            MainObs.shortcutStatus.value =
-                'Delete/${MainObs.focusItemIndex}/${DateTime.now()}';
-          }
+          MainObs.setShortcutStatus('Delete');
+        },
+        const SingleActivator(LogicalKeyboardKey.enter): () {
+          MainObs.setShortcutStatus('Open');
         }
       },
       child: Focus(
@@ -373,9 +374,13 @@ class _MyHomePageState extends State<MyHomePage> {
   shortcutCallback(String status) {
     var params = status.split('/');
     int index = int.parse(params[1]);
+    var item = items[index];
     switch (params.first) {
       case 'Delete':
-        items[index].deleteSync();
+        item.deleteSync();
+        break;
+      case 'Open':
+        OpenAppFile.open(item.path);
         break;
       default:
     }
