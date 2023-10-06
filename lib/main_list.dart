@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:local_keep/main_obs.dart';
 import 'package:mime/mime.dart';
-import 'package:open_app_file/open_app_file.dart';
 
 class MainList extends StatelessWidget {
   final List<FileSystemEntity> items;
@@ -23,6 +22,10 @@ class MainList extends StatelessWidget {
             onSelected: (value) => MainObs.setShortcutStatus(value, index),
             itemBuilder: (BuildContext context) {
               return [
+                const PopupMenuItem(
+                  value: 'Copy',
+                  child: Text('Copy'),
+                ),
                 const PopupMenuItem(
                   value: 'Delete',
                   child: Text('Delete'),

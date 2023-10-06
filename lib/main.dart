@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:local_keep/main_list.dart';
 import 'package:local_keep/main_obs.dart';
 import 'package:local_keep/settings.dart';
+import 'package:mime/mime.dart';
 import 'package:open_app_file/open_app_file.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:quick_actions/quick_actions.dart';
@@ -96,6 +97,9 @@ class _MyHomePageState extends State<MyHomePage> {
         },
         const SingleActivator(LogicalKeyboardKey.keyN, control: true): () {
           quickCreate();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
+          MainObs.setShortcutStatus('Copy');
         },
         const SingleActivator(LogicalKeyboardKey.delete): () {
           MainObs.setShortcutStatus('Delete');
@@ -375,7 +379,15 @@ class _MyHomePageState extends State<MyHomePage> {
     var params = status.split('/');
     int index = int.parse(params[1]);
     var item = items[index];
+    var mime = lookupMimeType(item.path);
     switch (params.first) {
+      case 'Copy':
+        var text = item.path;
+        if (mime != null && mime.startsWith('text/')) {
+          text = File(item.path).readAsStringSync();
+        }
+        Clipboard.setData(ClipboardData(text: text));
+        break;
       case 'Delete':
         item.deleteSync();
         break;
