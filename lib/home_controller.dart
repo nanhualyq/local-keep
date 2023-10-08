@@ -100,7 +100,7 @@ class HomeController extends GetxController {
 
   addText(String text) {
     var file = File('$dataPath/$newName.txt');
-    file.writeAsString(text);
+    file.writeAsStringSync(text);
     items.add(file);
     update();
   }
@@ -146,7 +146,7 @@ class HomeController extends GetxController {
     }
     var shuffix = path.split('.').last;
     var newPath = '$dataPath/$newName.$shuffix';
-    File(path).copy(newPath);
+    File(path).copySync(newPath);
     items.add(File(newPath));
     update();
   }
